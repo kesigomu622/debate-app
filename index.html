@@ -99,7 +99,7 @@
 <div class="max-w-5xl mx-auto w-full p-4 md:p-6 relative z-10 pb-40">
     
     <!-- ヘッダー -->
-    <header class="text-center py-6 md:py-10 relative">
+    <header class="text-center pt-16 pb-6 md:py-10 relative">
         <button onclick="openApiModal(false)" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors p-3 rounded-full hover:bg-slate-200">
             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         </button>
@@ -356,7 +356,12 @@
 
     // API通信用関数（Canvas環境の要件に準拠）
     async function generateAIResponse(prompt, systemInstruction, options = {}) {
-        const apiKey = ""; // 実行環境から自動提供されます
+        const apiKey = getApiKey();
+        if (!apiKey) {
+            openApiModal(true);
+            throw new Error("API_KEY_MISSING");
+        }
+        
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
         const payload = {
             contents: [{ parts: [{ text: prompt }] }],
@@ -526,6 +531,8 @@
             document.getElementById('verification-area').classList.remove('hidden');
             setTimeout(() => document.getElementById('verification-area').scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
         } catch(e) { 
+            if (e.message === "API_KEY_MISSING") return;
+            
             const errorMsg = document.getElementById('error-msg');
             errorMsg.innerText = "通信エラーが発生しました。時間をおいて再試行してください。";
             errorMsg.classList.remove('hidden', 'opacity-0');
@@ -664,6 +671,10 @@ ${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:$
             document.getElementById('report-area').scrollIntoView({ behavior: 'smooth' });
 
         } catch(e) { 
+            if (e.message === "API_KEY_MISSING") {
+                appendMessage("System", `APIキーが設定されていません。設定アイコンからキーを入力してください。`, null, true); 
+                return;
+            }
             console.error("Debate Loop Error:", e);
             appendMessage("System", `通信エラーにより試合が中断されました。サーバーが混雑している可能性があります。`, null, true); 
         } finally { 
