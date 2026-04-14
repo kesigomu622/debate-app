@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Arena Ver.3.3 - Tactical Edition</title>
+    <title>AI Debate Arena Ver.3.6 (Canvas Fix)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes slideUpFade {
@@ -69,7 +69,7 @@
         </h3>
         <p class="text-base text-slate-500 mb-4 font-bold">Gemini API キーを入力してください。ブラウザにのみ保存されます。</p>
         <div id="api-warning" class="hidden mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm font-bold text-amber-700">
-            ⚠️ APIキーが未入力、または無効なキーでエラーが発生しました。
+            ⚠️ APIキーが無効です。設定を確認してください。
         </div>
         <input type="password" id="api-key-input" class="w-full px-5 py-4 bg-slate-50 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none mb-6 font-mono text-base shadow-inner" placeholder="AIzaSy...">
         <div class="flex justify-end gap-3">
@@ -241,7 +241,6 @@
     </div>
 
     <!-- ステップ3: 論争アリーナ (チャットコンテナ) -->
-    <!-- 視認性確保のため、チャット領域自体は白背景を持たせつつ、大きな影や二重枠構造を抑制 -->
     <div id="arena-area" class="hidden flex flex-col bg-white rounded-3xl border border-slate-200 overflow-hidden mb-12 msg-anim relative shadow-sm">
         <div class="bg-slate-50 border-b border-slate-200 px-4 md:px-6 py-4 md:py-5 flex justify-between items-center shrink-0 z-10">
             <div class="flex items-center gap-2 md:gap-3 text-sm md:text-base font-black text-blue-600 uppercase"><div class="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div> <span id="header-ai-a">AI (青)</span></div>
@@ -251,10 +250,9 @@
             <div class="flex items-center gap-2 md:gap-3 text-sm md:text-base font-black text-red-600 uppercase"><span id="header-ai-b">AI (赤)</span> <div class="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div></div>
         </div>
         
-        <!-- スマホでも下部に余裕を持たせるための余白 -->
         <div id="chat-box" class="p-4 md:p-8 flex flex-col gap-6 md:gap-8 pb-32 md:pb-40 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4wNSkiLz48L3N2Zz4=')]"></div>
 
-        <!-- 異議あり！ボタン (fixedで画面下部に完全固定) -->
+        <!-- 異議あり！ボタン -->
         <button onclick="openObjectionModal()" id="btn-objection" class="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 bg-red-600 text-white font-black py-4 px-8 md:px-10 rounded-full shadow-[0_10px_40px_rgba(220,38,38,0.6)] hover:bg-red-500 transition-all hover:scale-105 flex items-center gap-2 hidden z-[100] border-2 border-red-300 text-lg md:text-xl w-max tracking-wide">
             <svg class="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
             異議あり！
@@ -302,17 +300,20 @@
 </div>
 
 <script>
-    // Canvas環境用のAPIキー設定 (ランタイムで自動付与されるため空でOK)
-    const envApiKey = ""; 
-    
-    // UIを保つためのダミー関数
-    function getApiKey() { return localStorage.getItem('gemini_api_key_v3_cards') || envApiKey; }
+    const apiKey = ""; 
+
+    function getApiKey() { 
+        return localStorage.getItem('gemini_api_key_v3_cards') || ""; 
+    }
+
     function openApiModal(showWarning = false) { 
-        document.getElementById('api-key-input').value = localStorage.getItem('gemini_api_key_v3_cards') || '';
+        document.getElementById('api-key-input').value = getApiKey();
         document.getElementById('api-warning').classList.toggle('hidden', !showWarning);
         document.getElementById('api-modal').classList.remove('hidden'); 
     }
+
     function closeApiModal() { document.getElementById('api-modal').classList.add('hidden'); }
+
     function saveApiKey() {
         const val = document.getElementById('api-key-input').value.trim();
         if(val) localStorage.setItem('gemini_api_key_v3_cards', val);
@@ -354,15 +355,19 @@
         closeObjectionModal();
     }
 
-    // API通信用関数（Canvas環境の要件に準拠）
     async function generateAIResponse(prompt, systemInstruction, options = {}) {
-        const apiKey = getApiKey();
-        if (!apiKey) {
+        const storedKey = getApiKey();
+        const finalKey = storedKey || apiKey;
+
+        if (!finalKey) {
             openApiModal(true);
             throw new Error("API_KEY_MISSING");
         }
         
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${apiKey}`;
+        // ✅ モデルIDを修正
+        const modelId = "gemini-2.0-flash";
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${finalKey}`;
+        
         const payload = {
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: { parts: [{ text: systemInstruction }] }
@@ -370,20 +375,31 @@
         if (options.schema) payload.generationConfig = { responseMimeType: "application/json", responseSchema: options.schema };
         if (options.useSearch) payload.tools = [{ "google_search": {} }];
 
-        // エクスポネンシャルバックオフ (1s, 2s, 4s, 8s, 16s)
         const delays = [1000, 2000, 4000, 8000, 16000];
         for (let i = 0; i <= delays.length; i++) {
             try {
                 const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                
                 if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
+                    const errText = await response.text();
+                    let errMsg = `HTTP ${response.status}`;
+                    try {
+                        const errJson = JSON.parse(errText);
+                        if (errJson.error && errJson.error.message) {
+                            errMsg += ` - ${errJson.error.message}`;
+                        }
+                    } catch (e) {}
+                    throw new Error(errMsg);
                 }
+                
                 const data = await response.json();
                 const text = data.candidates[0].content.parts[0].text;
                 return options.schema ? JSON.parse(text) : text;
             } catch (err) {
                 console.warn(`API retry ${i+1}/${delays.length} failed:`, err);
-                if (i === delays.length) throw err;
+                if (i === delays.length || err.message.includes("HTTP 400") || err.message.includes("HTTP 403") || err.message.includes("HTTP 404")) {
+                    throw err;
+                }
                 await new Promise(r => setTimeout(r, delays[i]));
             }
         }
@@ -394,14 +410,12 @@
         container.innerHTML = "";
         points.forEach(p => addWeaponCard(containerId, p, colorType));
         const addBtn = document.createElement('button');
-        // ボタンも文字サイズや余白を大きく
         addBtn.className = `w-full mt-3 py-3 border-2 border-dashed ${colorType==='a'?'border-blue-400 text-blue-600':'border-red-400 text-red-600'} rounded-xl font-black text-sm hover:bg-slate-50 transition-colors`;
         addBtn.innerText = "+ 武器を追加";
         addBtn.onclick = () => addWeaponCard(containerId, "", colorType, addBtn);
         container.appendChild(addBtn);
     }
 
-    // 武器カードを textarea 化し、色付けと余白追加で長文に対応
     function addWeaponCard(containerId, text, colorType, insertBeforeEl = null) {
         const card = document.createElement('div');
         const bgColor = colorType === 'a' ? 'bg-blue-50/80' : 'bg-red-50/80';
@@ -417,7 +431,6 @@
         if (insertBeforeEl) container.insertBefore(card, insertBeforeEl);
         else container.appendChild(card);
 
-        // 追加直後に高さを自動調整
         const textarea = card.querySelector('textarea');
         if (textarea) {
             setTimeout(() => {
@@ -429,7 +442,6 @@
 
     function getWeaponsArray(id) { return Array.from(document.querySelectorAll(`#${id} .weapon-input`)).map(i => i.value.trim()).filter(v => v !== ""); }
 
-    // メッセージの文字サイズ全般を大きく調整
     function appendMessage(sender, text, isA, isSystem = false, customClass = null, customHeader = null) {
         const wrapper = document.createElement('div');
         wrapper.className = `flex w-full ${isSystem ? 'justify-center' : isA ? 'justify-start' : 'justify-end'} msg-anim`;
@@ -448,12 +460,13 @@
         return bubble;
     }
 
-    // ファクトチェックテキストも text-[9px] から text-xs に拡大
     async function runFactCheck(node, text, cA, cB) {
         const fc = document.createElement('div');
         fc.className = "text-xs text-slate-500 mt-4 pt-3 border-t border-dotted border-slate-200 italic flex items-center gap-1.5";
         fc.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Fact checking...`;
-        node.querySelector('.msg-content').appendChild(fc);
+        const contentArea = node.querySelector('.msg-content');
+        if (contentArea) contentArea.appendChild(fc);
+        
         const prompt = `事実確認を行い、1行(40文字)で補足または訂正せよ。\n【発言】${text}\n【事実】${cA}\n${cB}`;
         try {
             const res = await generateAIResponse(prompt, "公平なジャッジAI。極短。");
@@ -461,7 +474,7 @@
             scrollToBottom();
         } catch(e) { 
             console.error("FactCheck Error:", e);
-            fc.innerHTML = `<span class="text-red-400 text-xs">Judge API Error (スキップしました)</span>`;
+            fc.innerHTML = `<span class="text-red-400 text-xs">Judge API Error</span>`;
         }
     }
 
@@ -489,7 +502,6 @@
         }
     }
 
-    //リサーチ開始
     document.getElementById('search-info-btn').addEventListener('click', async () => {
         if (isProcessing) return;
         const itemA = document.getElementById('item-a').value.trim();
@@ -531,10 +543,15 @@
             document.getElementById('verification-area').classList.remove('hidden');
             setTimeout(() => document.getElementById('verification-area').scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
         } catch(e) { 
-            if (e.message === "API_KEY_MISSING") return;
+            if (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404")) {
+                document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません: ${e.message}`;
+                document.getElementById('api-warning').classList.remove('hidden');
+                openApiModal(true);
+                return;
+            }
             
             const errorMsg = document.getElementById('error-msg');
-            errorMsg.innerText = "通信エラーが発生しました。時間をおいて再試行してください。";
+            errorMsg.innerText = `エラー: ${e.message}`;
             errorMsg.classList.remove('hidden', 'opacity-0');
             errorMsg.classList.add('opacity-100');
             setTimeout(() => {
@@ -548,7 +565,6 @@
         }
     });
 
-    //論争開始
     document.getElementById('start-debate-btn').addEventListener('click', async () => {
         if (isProcessing) return;
         const priorities = document.getElementById('user-priorities').value.trim();
@@ -564,7 +580,6 @@
         const loops = parseInt(document.getElementById('loop-count').value);
         const tone = document.getElementById('debate-tone').value;
 
-        // ヘッダーのAI名を更新
         document.getElementById('header-ai-a').innerText = itemA;
         document.getElementById('header-ai-b').innerText = itemB;
 
@@ -595,7 +610,6 @@ ${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:$
             let nextSys = sysA;
             let isNextA = true;
             
-            // 最初のメッセージ生成
             showTyping(isNextA);
             let message = await generateAIResponse(nextPrompt, nextSys);
             hideTyping();
@@ -605,7 +619,6 @@ ${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:$
             history += `A: ${message}\n`;
 
             for (let j = 1; j < loops * 2; j++) {
-                // 次のターンの準備
                 isNextA = !isNextA;
                 nextSys = isNextA ? sysA : sysB;
 
@@ -616,38 +629,26 @@ ${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:$
                 }
                 nextPrompt = `反論せよ。\n${history}${objText}`;
 
-                // ★ 相手が考えている（タイピング中）ように見せる
                 showTyping(isNextA);
-
-                // 1. その裏で、前ターンのメッセージに対するJudgeを開始 (非同期)
                 const judgePromise = runFactCheck(node, message, deepContextA, deepContextB);
-
-                // APIのRate Limitエラーを防ぐため、1.5秒だけずらして相手の思考APIを叩く
                 await new Promise(r => setTimeout(r, 1500));
-
-                // 2. 相手のメッセージを生成 (API)
                 message = await generateAIResponse(nextPrompt, nextSys);
-
-                // Judgeが終わるのを確実に待つ
                 await judgePromise;
 
-                // タイピングアニメーションを消して、生成されたメッセージを表示
                 hideTyping();
                 currentSender = isNextA ? itemA : itemB;
                 node = appendMessage(`AI (${currentSender})`, message, isNextA);
                 history += `${isNextA ? 'A' : 'B'}: ${message}\n`;
             }
 
-            // 最後のメッセージに対するJudge
-            showTyping(!isNextA); // 判定中っぽく見せるためタイピングを出す
+            showTyping(!isNextA);
             await runFactCheck(node, message, deepContextA, deepContextB);
             hideTyping();
 
             appendMessage("System", "議論終了。判定中...", null, true);
-            document.getElementById('btn-objection').classList.add('hidden'); // 議論終了時に異議ありボタンを消す
+            document.getElementById('btn-objection').classList.add('hidden');
 
-            // winnerプロパティにアイテム名をそのまま入れるようにプロンプトを修正
-            const report = await generateAIResponse(`勝敗を決せよ。winnerフィールドには必ず勝った方の名称(「${itemA}」または「${itemB}」)をそのまま出力せよ。\n${cond}\n履歴：${history}`, "名物ジャッジAI。厳密判定。", {
+            const report = await generateAIResponse(`勝敗を決せよ。winnerフィールドには勝った名称「${itemA}」または「${itemB}」を出力せよ。\n${cond}\n履歴：${history}`, "名物ジャッジAI。厳密判定。", {
                 schema: {
                     type: "OBJECT",
                     properties: {
@@ -671,12 +672,13 @@ ${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:$
             document.getElementById('report-area').scrollIntoView({ behavior: 'smooth' });
 
         } catch(e) { 
-            if (e.message === "API_KEY_MISSING") {
-                appendMessage("System", `APIキーが設定されていません。設定アイコンからキーを入力してください。`, null, true); 
+            if (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404")) {
+                openApiModal(true);
+                appendMessage("System", `APIエラーにより中断しました: ${e.message}`, null, true); 
                 return;
             }
             console.error("Debate Loop Error:", e);
-            appendMessage("System", `通信エラーにより試合が中断されました。サーバーが混雑している可能性があります。`, null, true); 
+            appendMessage("System", `通信エラーにより試合が中断されました: ${e.message}`, null, true); 
         } finally { 
             isProcessing = false; 
             btn.disabled = false; 
