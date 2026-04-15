@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Arena Ver.3.6 (Canvas Fix)</title>
+    <title>AI Debate Arena Ver.3.7 (Dual Model Fix)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes slideUpFade {
@@ -366,8 +366,8 @@
 
         // 【重要】プレビュー環境(Canvas)ではAPIキーが空のままリクエストすると自動注入されるため、事前チェック(throw Error)は行わない
         
-        // プレビュー環境で動作するサポートモデル
-        const modelId = "gemini-2.5-flash-preview-09-2025";
+        // ユーザーがAPIキーを入力した場合(Vercel等)は安定版を、プレビュー環境の場合は専用モデルを自動選択
+        const modelId = storedKey ? "gemini-1.5-flash" : "gemini-2.5-flash-preview-09-2025";
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${finalKey}`;
         
         const payload = {
