@@ -241,6 +241,7 @@
     </div>
 
     <!-- ステップ3: 論争アリーナ (チャットコンテナ) -->
+    <!-- 視認性確保のため、チャット領域自体は白背景を持たせつつ、大きな影や二重枠構造を抑制 -->
     <div id="arena-area" class="hidden flex flex-col bg-white rounded-3xl border border-slate-200 overflow-hidden mb-12 msg-anim relative shadow-sm">
         <div class="bg-slate-50 border-b border-slate-200 px-4 md:px-6 py-4 md:py-5 flex justify-between items-center shrink-0 z-10">
             <div class="flex items-center gap-2 md:gap-3 text-sm md:text-base font-black text-blue-600 uppercase"><div class="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div> <span id="header-ai-a">AI (青)</span></div>
@@ -250,9 +251,10 @@
             <div class="flex items-center gap-2 md:gap-3 text-sm md:text-base font-black text-red-600 uppercase"><span id="header-ai-b">AI (赤)</span> <div class="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div></div>
         </div>
         
+        <!-- スマホでも下部に余裕を持たせるための余白 -->
         <div id="chat-box" class="p-4 md:p-8 flex flex-col gap-6 md:gap-8 pb-32 md:pb-40 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4wNSkiLz48L3N2Zz4=')]"></div>
 
-        <!-- 異議あり！ボタン -->
+        <!-- 異議あり！ボタン (fixedで画面下部に完全固定) -->
         <button onclick="openObjectionModal()" id="btn-objection" class="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 bg-red-600 text-white font-black py-4 px-8 md:px-10 rounded-full shadow-[0_10px_40px_rgba(220,38,38,0.6)] hover:bg-red-500 transition-all hover:scale-105 flex items-center gap-2 hidden z-[100] border-2 border-red-300 text-lg md:text-xl w-max tracking-wide">
             <svg class="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
             異議あり！
@@ -300,6 +302,7 @@
 </div>
 
 <script>
+    // Canvasプレビュー用の空APIキー (実行時に自動的に注入される)
     const apiKey = ""; 
 
     function getApiKey() { 
@@ -355,17 +358,16 @@
         closeObjectionModal();
     }
 
+    // API通信用関数（Canvas環境とVercel環境の両方に対応）
     async function generateAIResponse(prompt, systemInstruction, options = {}) {
+        // ローカルストレージからの取得を優先、なければプレビュー環境用の空キー(apiKey)を使う
         const storedKey = getApiKey();
         const finalKey = storedKey || apiKey;
 
-        if (!finalKey) {
-            openApiModal(true);
-            throw new Error("API_KEY_MISSING");
-        }
+        // 【重要】プレビュー環境(Canvas)ではAPIキーが空のままリクエストすると自動注入されるため、事前チェック(throw Error)は行わない
         
-        // ✅ モデルIDを修正
-        const modelId = "gemini-2.0-flash";
+        // プレビュー環境で動作するサポートモデル
+        const modelId = "gemini-2.5-flash-preview-09-2025";
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${finalKey}`;
         
         const payload = {
@@ -397,6 +399,7 @@
                 return options.schema ? JSON.parse(text) : text;
             } catch (err) {
                 console.warn(`API retry ${i+1}/${delays.length} failed:`, err);
+                // 認証エラー(400/403)や404はリトライせずに即時モーダル表示
                 if (i === delays.length || err.message.includes("HTTP 400") || err.message.includes("HTTP 403") || err.message.includes("HTTP 404")) {
                     throw err;
                 }
