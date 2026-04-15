@@ -397,8 +397,8 @@
             if (options.schema) payload.generationConfig = { responseMimeType: "application/json", responseSchema: options.schema };
             if (options.useSearch) payload.tools = [{ "google_search": {} }];
 
-            // リトライ回数を減らして待機時間を短縮
-            const delays = [1000, 2000, 4000];
+            // 超安全・おっとりモード：リトライ間隔を大幅に遅くする (5秒, 10秒, 20秒)
+            const delays = [5000, 10000, 20000];
             for (let i = 0; i <= delays.length; i++) {
                 try {
                     const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -521,7 +521,7 @@
             scrollToBottom();
         } catch(e) { 
             console.error("FactCheck Error:", e);
-            fc.innerHTML = `<span class="text-red-400 text-xs">Judge API Error</span>`;
+            fc.innerHTML = `<span class="text-amber-500 text-xs">Judge API Error (混み合っています)</span>`;
         }
     }
 
@@ -573,11 +573,12 @@
         };
 
         try {
-            // 通信制限エラーを避けるため、同時にリクエストせず「順番」に実行するように修正
+            // 超安全モード: 通信制限エラーを避けるため、同時にリクエストせず「順番」に実行する
             const resA = await generateAIResponse(`「${itemA}」について最新スペックと特徴を日本語で抽出せよ。`, "優秀なリサーチAI。必ず日本語で出力すること。", { useSearch: true, schema });
             
             textSpan.innerText = "データ照合中...";
-            await new Promise(r => setTimeout(r, 1000)); // 連続アクセスを防ぐための待機時間
+            // 超安全モード: 連続アクセスを防ぐため 3秒 (3000ms) 待機する
+            await new Promise(r => setTimeout(r, 3000));
             
             const resB = await generateAIResponse(`「${itemB}」について最新スペックと特徴を日本語で抽出せよ。`, "優秀なリサーチAI。必ず日本語で出力すること。", { useSearch: true, schema });
 
@@ -599,11 +600,11 @@
             // モーダル表示処理
             if (hasUserKey) {
                 if (e.message.includes("HTTP 429")) {
-                    document.getElementById('api-warning').innerText = `⚠️ APIの利用枠上限に達しました(429)。時間をおくか、別のAPIキーを設定してください。`;
+                    document.getElementById('api-warning').innerText = `いまGoogleのAIが混み合っています。2分ほど休憩してからもう一度お試しいただくか、別のAPIキーを設定してください。`;
                     document.getElementById('api-warning').classList.remove('hidden');
                     openApiModal(true);
                 } else if (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404")) {
-                    document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません: ${e.message}`;
+                    document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません。設定を確認してください。`;
                     document.getElementById('api-warning').classList.remove('hidden');
                     openApiModal(true);
                 }
@@ -611,7 +612,13 @@
             
             // 画面に「反応がない」と思わせないため、ボタン下部にも必ずエラーテキストを表示
             const errorMsg = document.getElementById('error-msg');
-            errorMsg.innerText = `エラー: ${e.message}`;
+            if (e.message.includes("HTTP 429")) {
+                errorMsg.innerText = "いまGoogleが混み合っています。2分ほど休憩してからもう一度お試しください。";
+            } else {
+                // 長いスタックトレースが出ないようにエラーメッセージを丸める
+                errorMsg.innerText = `通信エラーが発生しました: ${e.message.substring(0, 40)}...`;
+            }
+            
             errorMsg.classList.remove('hidden', 'opacity-0');
             errorMsg.classList.add('opacity-100');
             setTimeout(() => {
@@ -736,20 +743,20 @@ ${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:$
             const hasUserKey = !!getApiKey();
 
             if (hasUserKey && e.message.includes("HTTP 429")) {
-                document.getElementById('api-warning').innerText = `⚠️ APIの利用枠上限に達しました(429)。時間をおくか、別のAPIキーを設定してください。`;
+                document.getElementById('api-warning').innerText = `いまGoogleのAIが混み合っています。2分ほど休憩してからもう一度お試しいただくか、別のAPIキーを設定してください。`;
                 document.getElementById('api-warning').classList.remove('hidden');
                 openApiModal(true);
-                appendMessage("System", `APIの利用枠上限に達したため中断しました。別のAPIキーをお試しください。`, null, true); 
+                appendMessage("System", `いまGoogleが混み合っています。2分ほど休憩してからもう一度お試しください。`, null, true); 
                 return;
             }
             if (hasUserKey && (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404"))) {
-                document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません: ${e.message}`;
+                document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません。設定を確認してください。`;
                 document.getElementById('api-warning').classList.remove('hidden');
                 openApiModal(true);
-                appendMessage("System", `APIエラーにより中断しました: ${e.message}`, null, true); 
+                appendMessage("System", `APIエラーにより中断しました。`, null, true); 
                 return;
             }
-            appendMessage("System", `通信エラーにより試合が中断されました: ${e.message}`, null, true); 
+            appendMessage("System", `通信エラーにより試合が中断されました。`, null, true); 
         } finally { 
             isProcessing = false; 
             btn.disabled = false; 
