@@ -534,9 +534,9 @@
         const contentArea = node.querySelector('.msg-content');
         if (contentArea) contentArea.appendChild(fc);
         
-        const prompt = `事実確認を行い、1行(40文字)で補足または訂正せよ。\n【発言】${text}\n【事実】${cA}\n${cB}`;
+        const prompt = `事実確認を行い、1行(40文字)の日本語で補足または訂正せよ。\n【発言】${text}\n【事実】${cA}\n${cB}`;
         try {
-            const res = await generateAIResponse(prompt, "公平なジャッジAI。極短。");
+            const res = await generateAIResponse(prompt, "公平なジャッジAI。極短。必ず日本語で出力すること。");
             fc.innerHTML = `<svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 12l2 2 4-4"/></svg> <span class="text-slate-600 font-bold">Judge: ${res}</span>`;
             scrollToBottom();
         } catch(e) { 
@@ -594,12 +594,12 @@
 
         try {
             // 通信制限エラーを避けるため、同時にリクエストせず「順番」に実行するように修正
-            const resA = await generateAIResponse(`「${itemA}」について最新スペックと特徴を抽出せよ。`, "優秀なリサーチAI。", { useSearch: true, schema });
+            const resA = await generateAIResponse(`「${itemA}」について最新スペックと特徴を日本語で抽出せよ。`, "優秀なリサーチAI。必ず日本語で出力すること。", { useSearch: true, schema });
             
             textSpan.innerText = "データ照合中...";
             await new Promise(r => setTimeout(r, 1000)); // 連続アクセスを防ぐための待機時間
             
-            const resB = await generateAIResponse(`「${itemB}」について最新スペックと特徴を抽出せよ。`, "優秀なリサーチAI。", { useSearch: true, schema });
+            const resB = await generateAIResponse(`「${itemB}」について最新スペックと特徴を日本語で抽出せよ。`, "優秀なリサーチAI。必ず日本語で出力すること。", { useSearch: true, schema });
 
             document.getElementById('label-info-a').innerText = resA.official_name;
             document.getElementById('label-info-b').innerText = resB.official_name;
@@ -678,7 +678,7 @@
 
         let history = "";
         const createSys = (mine, opp, mC, oC, mW, oW, mD, oD) => `あなたは「${mine}」の熱烈支持者。「${opp}」は敵。
-${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:${oC}, 武器:${oW.join(',')}, 詳細:${oD})\nトーン:${tone === 'spicy' ? '皮肉・煽り' : tone === 'emotional' ? '情熱的' : '冷静・論理的'}。短く(150字)。`;
+${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:${oC}, 武器:${oW.join(',')}, 詳細:${oD})\nトーン:${tone === 'spicy' ? '皮肉・煽り' : tone === 'emotional' ? '情熱的' : '冷静・論理的'}。短く(150字)。必ず日本語で出力せよ。`;
 
         const sysA = createSys(itemA, itemB, cA, cB, wA, wB, deepContextA, deepContextB);
         const sysB = createSys(itemB, itemA, cB, cA, wB, wA, deepContextB, deepContextA);
@@ -728,7 +728,7 @@ ${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:$
             appendMessage("System", "議論終了。判定中...", null, true);
             document.getElementById('btn-objection').classList.add('hidden');
 
-            const report = await generateAIResponse(`勝敗を決せよ。winnerフィールドには勝った名称「${itemA}」または「${itemB}」を出力せよ。\n${cond}\n履歴：${history}`, "名物ジャッジAI。厳密判定。", {
+            const report = await generateAIResponse(`勝敗を決せよ。winnerフィールドには勝った名称「${itemA}」または「${itemB}」を出力せよ。\n${cond}\n履歴：${history}`, "名物ジャッジAI。厳密判定。必ず日本語で出力すること。", {
                 schema: {
                     type: "OBJECT",
                     properties: {
