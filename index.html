@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Arena Ver.3.7 (Dual Model Fix)</title>
+    <title>AI Debate Arena Ver.3.8 (Model Auto-Fallback)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes slideUpFade {
@@ -364,48 +364,63 @@
         const storedKey = getApiKey();
         const finalKey = storedKey || apiKey;
 
-        // 【重要】プレビュー環境(Canvas)ではAPIキーが空のままリクエストすると自動注入されるため、事前チェック(throw Error)は行わない
-        
-        // 【修正】環境に関わらず、プレビュー環境で唯一サポートされているモデルに統一
-        const modelId = "gemini-2.5-flash-preview-09-2025";
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${finalKey}`;
-        
-        const payload = {
-            contents: [{ parts: [{ text: prompt }] }],
-            systemInstruction: { parts: [{ text: systemInstruction }] }
-        };
-        if (options.schema) payload.generationConfig = { responseMimeType: "application/json", responseSchema: options.schema };
-        if (options.useSearch) payload.tools = [{ "google_search": {} }];
+        // Vercel(手動キー)の場合は安定版モデルから順に試し、Canvas環境の場合は専用モデルのみ使用
+        const modelsToTry = storedKey 
+            ? ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro"] 
+            : ["gemini-2.5-flash-preview-09-2025"];
 
-        const delays = [1000, 2000, 4000, 8000, 16000];
-        for (let i = 0; i <= delays.length; i++) {
-            try {
-                const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                
-                if (!response.ok) {
-                    const errText = await response.text();
-                    let errMsg = `HTTP ${response.status}`;
-                    try {
-                        const errJson = JSON.parse(errText);
-                        if (errJson.error && errJson.error.message) {
-                            errMsg += ` - ${errJson.error.message}`;
-                        }
-                    } catch (e) {}
-                    throw new Error(errMsg);
+        let lastError = null;
+
+        for (const modelId of modelsToTry) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${finalKey}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemInstruction }] }
+            };
+            if (options.schema) payload.generationConfig = { responseMimeType: "application/json", responseSchema: options.schema };
+            if (options.useSearch) payload.tools = [{ "google_search": {} }];
+
+            const delays = [1000, 2000, 4000, 8000];
+            for (let i = 0; i <= delays.length; i++) {
+                try {
+                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        let errMsg = `HTTP ${response.status}`;
+                        try {
+                            const errJson = JSON.parse(errText);
+                            if (errJson.error && errJson.error.message) {
+                                errMsg += ` - ${errJson.error.message}`;
+                            }
+                        } catch (e) {}
+                        throw new Error(errMsg);
+                    }
+                    
+                    const data = await response.json();
+                    const text = data.candidates[0].content.parts[0].text;
+                    return options.schema ? JSON.parse(text) : text;
+                } catch (err) {
+                    lastError = err;
+                    
+                    // 404 (モデルが見つからない) の場合は、このモデルのリトライをやめて「次のモデル」へ進む
+                    if (err.message.includes("HTTP 404")) {
+                        console.warn(`Model ${modelId} returned 404. Trying next model...`);
+                        break; 
+                    }
+                    
+                    // 認証エラー(400/403)は即時モーダル表示のために完全にスローして中断
+                    if (i === delays.length || err.message.includes("HTTP 400") || err.message.includes("HTTP 403")) {
+                        throw err;
+                    }
+                    await new Promise(r => setTimeout(r, delays[i]));
                 }
-                
-                const data = await response.json();
-                const text = data.candidates[0].content.parts[0].text;
-                return options.schema ? JSON.parse(text) : text;
-            } catch (err) {
-                console.warn(`API retry ${i+1}/${delays.length} failed:`, err);
-                // 認証エラー(400/403)や404はリトライせずに即時モーダル表示
-                if (i === delays.length || err.message.includes("HTTP 400") || err.message.includes("HTTP 403") || err.message.includes("HTTP 404")) {
-                    throw err;
-                }
-                await new Promise(r => setTimeout(r, delays[i]));
             }
         }
+        
+        // すべてのモデルリストを試しても失敗した場合はエラーを投げる
+        throw lastError;
     }
 
     function renderWeaponCards(containerId, points, colorType) {
