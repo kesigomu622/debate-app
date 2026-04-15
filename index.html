@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Arena Ver.3.9 (Auto-Detect Model)</title>
+    <title>AI Debate Arena Ver.3.10 (Quota Fix)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes slideUpFade {
@@ -104,7 +104,7 @@
             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         </button>
         <div class="inline-flex items-center justify-center px-4 py-1.5 mb-3 text-sm font-bold text-indigo-600 bg-indigo-100 rounded-full border border-indigo-200 uppercase tracking-widest shadow-sm">
-            🛡️ Version 3.9 Tactical Edition
+            🛡️ Version 3.10 Tactical Edition
         </div>
         <h1 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-red-600 mb-4 tracking-tight">
             AI Debate Arena
@@ -454,6 +454,11 @@
                         break; 
                     }
                     
+                    // 429 (クォータ超過) の場合、他のモデルを試してもブロックされる可能性が高いため即座にエラーを投げる
+                    if (err.message.includes("HTTP 429") && err.message.toLowerCase().includes("quota")) {
+                        throw err;
+                    }
+                    
                     // 認証エラー(400/403)は即時モーダル表示のために完全にスローして中断
                     if (i === delays.length || err.message.includes("HTTP 400") || err.message.includes("HTTP 403")) {
                         throw err;
@@ -605,6 +610,12 @@
             document.getElementById('verification-area').classList.remove('hidden');
             setTimeout(() => document.getElementById('verification-area').scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
         } catch(e) { 
+            if (e.message.includes("HTTP 429")) {
+                document.getElementById('api-warning').innerText = `⚠️ APIの利用枠上限に達しました(429)。時間をおくか、別のAPIキーを設定してください。`;
+                document.getElementById('api-warning').classList.remove('hidden');
+                openApiModal(true);
+                return;
+            }
             if (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404")) {
                 document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません: ${e.message}`;
                 document.getElementById('api-warning').classList.remove('hidden');
@@ -734,7 +745,16 @@ ${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:$
             document.getElementById('report-area').scrollIntoView({ behavior: 'smooth' });
 
         } catch(e) { 
+            if (e.message.includes("HTTP 429")) {
+                document.getElementById('api-warning').innerText = `⚠️ APIの利用枠上限に達しました(429)。時間をおくか、別のAPIキーを設定してください。`;
+                document.getElementById('api-warning').classList.remove('hidden');
+                openApiModal(true);
+                appendMessage("System", `APIの利用枠上限に達したため中断しました。別のAPIキーをお試しください。`, null, true); 
+                return;
+            }
             if (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404")) {
+                document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません: ${e.message}`;
+                document.getElementById('api-warning').classList.remove('hidden');
                 openApiModal(true);
                 appendMessage("System", `APIエラーにより中断しました: ${e.message}`, null, true); 
                 return;
