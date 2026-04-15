@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Arena Ver.3.18 (2.5-Search Unleashed)</title>
+    <title>AI Debate Arena Ver.3.19 (JSON+Search Fix)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes slideUpFade {
@@ -373,8 +373,18 @@
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: { parts: [{ text: systemInstruction }] }
         };
-        // 思考設定(thinking_config)等の不要なパラメータは含めない
-        if (options.schema) payload.generationConfig = { responseMimeType: "application/json", responseSchema: options.schema };
+        
+        // 【重要】検索機能(Tools)とJSONモード(responseMimeType)の同時使用エラーを回避
+        if (options.schema) {
+            if (options.useSearch) {
+                // 検索を使う場合はシステムJSONモードをオフにし、プロンプトの指示でJSONを強要する
+                payload.contents[0].parts[0].text += `\n\n【重要】出力は必ず以下のJSONスキーマに従うこと。マークダウン記法(\`\`\`json)などは一切含めず、純粋なJSON文字列のみを出力せよ。\n${JSON.stringify(options.schema)}`;
+            } else {
+                // 検索を使わない場合は通常のシステムJSONモードを使用
+                payload.generationConfig = { responseMimeType: "application/json", responseSchema: options.schema };
+            }
+        }
+        
         if (options.useSearch) payload.tools = [{ "google_search": {} }];
 
         // 超安全・おっとりモード：リトライ間隔を大幅に遅くする (5秒, 10秒, 20秒)
@@ -398,8 +408,19 @@
                 }
                 
                 const data = await response.json();
-                const text = data.candidates[0].content.parts[0].text;
-                return options.schema ? JSON.parse(text) : text;
+                let text = data.candidates[0].content.parts[0].text;
+                
+                if (options.schema) {
+                    // システムJSONモードを使わなかった場合、AIが親切で ```json と書いてしまうことがあるため除去
+                    try {
+                        const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                        return JSON.parse(cleanJson);
+                    } catch (e) {
+                        throw new Error(`JSON解析エラー: AIが想定外のフォーマットを返しました。`);
+                    }
+                }
+                
+                return text;
             } catch (err) {
                 lastError = err;
                 
