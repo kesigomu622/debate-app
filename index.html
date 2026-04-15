@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Arena Ver.3.12 (Lite-Preview)</title>
+    <title>AI Debate Arena Ver.3.14 (2.5-Flash)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes slideUpFade {
@@ -104,7 +104,7 @@
             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         </button>
         <div class="inline-flex items-center justify-center px-4 py-1.5 mb-3 text-sm font-bold text-indigo-600 bg-indigo-100 rounded-full border border-indigo-200 uppercase tracking-widest shadow-sm">
-            🛡️ Version 3.12 Tactical Edition
+            🛡️ Version 3.14 Tactical Edition
         </div>
         <h1 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-red-600 mb-4 tracking-tight">
             AI Debate Arena
@@ -273,7 +273,7 @@
             <div class="grid md:grid-cols-2 gap-6 md:gap-8 mb-8 md:mb-10">
                 <div class="rounded-3xl border-4 border-blue-200 p-6 md:p-8 bg-white relative overflow-hidden">
                     <div class="absolute top-0 right-0 w-32 h-32 md:w-40 md:h-40 bg-blue-50 rounded-bl-full -z-10"></div>
-                    <h3 id="report-title-a" class="text-2xl md:text-3xl font-black text-blue-800 mb-5 md:mb-6 pb-3 md:pb-4 border-b-2 border-blue-100 uppercase italic">Item A</h3>
+                    <h3 id="report-title-a" class="text-2xl md:text-3xl font-black text-blue-800 mb-5 md:mb-6 pb-3 md:pb-4 border-b-2 border-blue-100 uppercase">Item A</h3>
                     <h4 class="text-xs md:text-sm font-black text-emerald-600 mb-2 md:mb-3 uppercase tracking-widest">Pros</h4>
                     <ul id="pros-a" class="mb-6 md:mb-8 space-y-2 md:space-y-3 font-bold text-slate-700 text-sm md:text-base"></ul>
                     <h4 class="text-xs md:text-sm font-black text-red-600 mb-2 md:mb-3 uppercase tracking-widest">Cons</h4>
@@ -283,7 +283,7 @@
                 
                 <div class="rounded-3xl border-4 border-red-200 p-6 md:p-8 bg-white relative overflow-hidden">
                     <div class="absolute top-0 right-0 w-32 h-32 md:w-40 md:h-40 bg-red-50 rounded-bl-full -z-10"></div>
-                    <h3 id="report-title-b" class="text-2xl md:text-3xl font-black text-red-800 mb-5 md:mb-6 pb-3 md:pb-4 border-b-2 border-red-100 uppercase italic">Item B</h3>
+                    <h3 id="report-title-b" class="text-2xl md:text-3xl font-black text-red-800 mb-5 md:mb-6 pb-3 md:pb-4 border-b-2 border-red-100 uppercase">Item B</h3>
                     <h4 class="text-xs md:text-sm font-black text-emerald-600 mb-2 md:mb-3 uppercase tracking-widest">Pros</h4>
                     <ul id="pros-b" class="mb-6 md:mb-8 space-y-2 md:space-y-3 font-bold text-slate-700 text-sm md:text-base"></ul>
                     <h4 class="text-xs md:text-sm font-black text-red-600 mb-2 md:mb-3 uppercase tracking-widest">Cons</h4>
@@ -364,9 +364,9 @@
         const storedKey = getApiKey();
         const finalKey = storedKey || apiKey;
 
-        // Vercel(手動キー)の場合は gemini-3.1-flash-lite-preview に固定
+        // Vercel(手動キー)の場合は指定のモデルに固定
         // Canvas環境の場合は専用プレビューモデルを使用
-        const modelId = storedKey ? "gemini-3.1-flash-lite-preview" : "gemini-2.5-flash-preview-09-2025";
+        const modelId = storedKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${finalKey}`;
         
         const payload = {
