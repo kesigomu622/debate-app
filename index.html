@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Arena Ver.3.10 (Quota Fix)</title>
+    <title>AI Debate Arena Ver.3.8 (2.0-flash Stable)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes slideUpFade {
@@ -329,7 +329,6 @@
     let userObjections = [];
     let isProcessing = false;
     let isUserScrolledUp = false;
-    let cachedValidModel = null; // 成功したモデル名を記憶して高速化
 
     const chatBox = document.getElementById('chat-box');
     window.addEventListener('scroll', () => {
@@ -365,90 +364,58 @@
         const storedKey = getApiKey();
         const finalKey = storedKey || apiKey;
 
-        let modelsToTry = [];
+        // Vercel(手動キー)の場合は gemini-2.0-flash に完全固定
+        // Canvas環境の場合は専用プレビューモデルを使用
+        const modelId = storedKey ? "gemini-2.0-flash" : "gemini-2.5-flash-preview-09-2025";
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${finalKey}`;
+        
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: systemInstruction }] }
+        };
+        if (options.schema) payload.generationConfig = { responseMimeType: "application/json", responseSchema: options.schema };
+        if (options.useSearch) payload.tools = [{ "google_search": {} }];
 
-        if (storedKey) {
-            // Vercel(手動キー)の場合、すでに成功したモデルがあればそれを使う
-            if (cachedValidModel) {
-                modelsToTry = [cachedValidModel];
-            } else {
-                // 自動探知の通信エラーを避けるため、安定して動くモデルを順番に指定
-                modelsToTry = [
-                    "gemini-1.5-flash",
-                    "gemini-2.0-flash", 
-                    "gemini-1.5-flash-latest", 
-                    "gemini-1.5-pro"
-                ];
-            }
-        } else {
-            // Canvas環境の場合は専用モデルのみ使用
-            modelsToTry = ["gemini-2.5-flash-preview-09-2025"];
-        }
-
+        // 超安全・おっとりモード：リトライ間隔を大幅に遅くする (5秒, 10秒, 20秒)
+        const delays = [5000, 10000, 20000];
         let lastError = null;
 
-        for (const modelId of modelsToTry) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${finalKey}`;
-            
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: systemInstruction }] }
-            };
-            if (options.schema) payload.generationConfig = { responseMimeType: "application/json", responseSchema: options.schema };
-            if (options.useSearch) payload.tools = [{ "google_search": {} }];
-
-            // 超安全・おっとりモード：リトライ間隔を大幅に遅くする (5秒, 10秒, 20秒)
-            const delays = [5000, 10000, 20000];
-            for (let i = 0; i <= delays.length; i++) {
-                try {
-                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    
-                    if (!response.ok) {
-                        const errText = await response.text();
-                        let errMsg = `HTTP ${response.status}`;
-                        try {
-                            const errJson = JSON.parse(errText);
-                            if (errJson.error && errJson.error.message) {
-                                errMsg += ` - ${errJson.error.message}`;
-                            }
-                        } catch (e) {}
-                        throw new Error(errMsg);
-                    }
-                    
-                    const data = await response.json();
-                    const text = data.candidates[0].content.parts[0].text;
-
-                    // 通信に成功したモデルを記憶し、次回以降のAPI呼び出しを高速化
-                    if (storedKey && !cachedValidModel) {
-                        cachedValidModel = modelId;
-                        console.log(`Successfully connected using model: ${cachedValidModel}`);
-                    }
-
-                    return options.schema ? JSON.parse(text) : text;
-                } catch (err) {
-                    lastError = err;
-                    
-                    // 400(検索機能非対応など) や 404(モデル無し) の場合は即座に「次のモデル」へ進む
-                    if (err.message.includes("HTTP 400") || err.message.includes("HTTP 404")) {
-                        console.warn(`Model ${modelId} returned ${err.message}. Trying next model...`);
-                        break; 
-                    }
-                    
-                    // 429(クォータ超過) や 403(キー無効) の場合はアカウント全体のエラーなので即中断
-                    if (err.message.includes("HTTP 429") || err.message.includes("HTTP 403")) {
-                        throw err;
-                    }
-                    
-                    // ネットワークエラー等でリトライ上限に達した場合は次のモデルへ
-                    if (i === delays.length) {
-                        break;
-                    }
-                    await new Promise(r => setTimeout(r, delays[i]));
+        for (let i = 0; i <= delays.length; i++) {
+            try {
+                const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                
+                if (!response.ok) {
+                    const errText = await response.text();
+                    let errMsg = `HTTP ${response.status}`;
+                    try {
+                        const errJson = JSON.parse(errText);
+                        if (errJson.error && errJson.error.message) {
+                            errMsg += ` - ${errJson.error.message}`;
+                        }
+                    } catch (e) {}
+                    throw new Error(errMsg);
                 }
+                
+                const data = await response.json();
+                const text = data.candidates[0].content.parts[0].text;
+                return options.schema ? JSON.parse(text) : text;
+            } catch (err) {
+                lastError = err;
+                
+                // 429(クォータ超過) や 400, 403, 404 はリトライしても無駄なので即スローして中止
+                if (err.message.includes("HTTP 429") || err.message.includes("HTTP 400") || err.message.includes("HTTP 403") || err.message.includes("HTTP 404")) {
+                    throw err;
+                }
+                
+                // ネットワークエラー等でリトライ上限に達した場合はループを抜ける
+                if (i === delays.length) {
+                    break;
+                }
+                console.warn(`API Error. Retrying in ${delays[i]/1000}s...`);
+                await new Promise(r => setTimeout(r, delays[i]));
             }
         }
         
-        // すべてのモデルを試しても失敗した場合はエラーを投げる
         throw lastError;
     }
 
@@ -581,7 +548,7 @@
             const resA = await generateAIResponse(extractPrompt(itemA), sysInstruction, { useSearch: true, schema });
             
             textSpan.innerText = "データ照合中...";
-            // 超安全モード: 連続アクセスを防ぐため 3秒 (3000ms) 待機する
+            // 超安全モード: 青の調査が終わってから 3秒間 (3000ms) 待機して赤の調査を開始する
             await new Promise(r => setTimeout(r, 3000));
             
             const resB = await generateAIResponse(extractPrompt(itemB), sysInstruction, { useSearch: true, schema });
@@ -600,27 +567,20 @@
         } catch(e) { 
             console.error("Research Error:", e);
             const hasUserKey = !!getApiKey();
+            const errorMsg = document.getElementById('error-msg');
 
-            // モーダル表示処理
-            if (hasUserKey) {
-                if (e.message.includes("HTTP 429")) {
-                    document.getElementById('api-warning').innerText = `いまGoogleのAIが混み合っています。2分ほど休憩してからもう一度お試しいただくか、別のAPIキーを設定してください。`;
-                    document.getElementById('api-warning').classList.remove('hidden');
-                    openApiModal(true);
-                } else if (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404")) {
+            // 429エラー時はモーダルを出さず、画面下に優しく通知
+            if (e.message.includes("HTTP 429")) {
+                errorMsg.innerText = "Googleが混雑しています。1分待ってからもう一度押してください";
+            } else {
+                errorMsg.innerText = `通信エラーが発生しました: ${e.message.substring(0, 40)}...`;
+                
+                // キーやモデルの問題(400, 403, 404)の場合は設定モーダルを開く
+                if (hasUserKey && (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404"))) {
                     document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません。設定を確認してください。`;
                     document.getElementById('api-warning').classList.remove('hidden');
                     openApiModal(true);
                 }
-            }
-            
-            // 画面に「反応がない」と思わせないため、ボタン下部にも必ずエラーテキストを表示
-            const errorMsg = document.getElementById('error-msg');
-            if (e.message.includes("HTTP 429")) {
-                errorMsg.innerText = "いまGoogleが混み合っています。2分ほど休憩してからもう一度お試しください。";
-            } else {
-                // 長いスタックトレースが出ないようにエラーメッセージを丸める
-                errorMsg.innerText = `通信エラーが発生しました: ${e.message.substring(0, 40)}...`;
             }
             
             errorMsg.classList.remove('hidden', 'opacity-0');
@@ -746,13 +706,12 @@ ${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:$
             console.error("Debate Loop Error:", e);
             const hasUserKey = !!getApiKey();
 
-            if (hasUserKey && e.message.includes("HTTP 429")) {
-                document.getElementById('api-warning').innerText = `いまGoogleのAIが混み合っています。2分ほど休憩してからもう一度お試しいただくか、別のAPIキーを設定してください。`;
-                document.getElementById('api-warning').classList.remove('hidden');
-                openApiModal(true);
-                appendMessage("System", `いまGoogleが混み合っています。2分ほど休憩してからもう一度お試しください。`, null, true); 
+            // 429エラー時はモーダルを出さず、チャットに優しく通知
+            if (e.message.includes("HTTP 429")) {
+                appendMessage("System", `Googleが混雑しています。1分待ってからもう一度押してください`, null, true, "max-w-[95%] md:max-w-[90%] px-5 py-3 md:px-6 md:py-4 rounded-2xl bg-red-50 text-red-600 text-xs md:text-sm font-black shadow-sm border border-red-200 text-center z-10"); 
                 return;
             }
+
             if (hasUserKey && (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404"))) {
                 document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません。設定を確認してください。`;
                 document.getElementById('api-warning').classList.remove('hidden');
