@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Arena Ver.3.8 (Model Auto-Fallback)</title>
+    <title>AI Debate Arena Ver.3.9 (Auto-Detect Model)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes slideUpFade {
@@ -104,7 +104,7 @@
             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         </button>
         <div class="inline-flex items-center justify-center px-4 py-1.5 mb-3 text-sm font-bold text-indigo-600 bg-indigo-100 rounded-full border border-indigo-200 uppercase tracking-widest shadow-sm">
-            🛡️ Version 3.3 Tactical Edition
+            🛡️ Version 3.9 Tactical Edition
         </div>
         <h1 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-red-600 mb-4 tracking-tight">
             AI Debate Arena
@@ -329,6 +329,7 @@
     let userObjections = [];
     let isProcessing = false;
     let isUserScrolledUp = false;
+    let cachedValidModel = null; // 成功したモデル名を記憶して高速化
 
     const chatBox = document.getElementById('chat-box');
     window.addEventListener('scroll', () => {
@@ -364,10 +365,46 @@
         const storedKey = getApiKey();
         const finalKey = storedKey || apiKey;
 
-        // Vercel(手動キー)の場合は安定版モデルから順に試し、Canvas環境の場合は専用モデルのみ使用
-        const modelsToTry = storedKey 
-            ? ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro"] 
-            : ["gemini-2.5-flash-preview-09-2025"];
+        let modelsToTry = [];
+
+        if (storedKey) {
+            // Vercel(手動キー)の場合、すでに成功したモデルがあればそれを使う
+            if (cachedValidModel) {
+                modelsToTry = [cachedValidModel];
+            } else {
+                try {
+                    // Gemini APIの仕様に従い、そのAPIキーで現在実際に使えるモデル一覧を自動取得する
+                    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${finalKey}`);
+                    if (listRes.ok) {
+                        const listData = await listRes.json();
+                        // generateContentをサポートしているモデルだけを抽出
+                        const validModels = listData.models
+                            .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+                            .map(m => m.name.replace('models/', ''));
+                        
+                        // 高速なflash系を優先し、次にpro系を試すようにリストを構築
+                        const flashModels = validModels.filter(m => m.includes('flash')).sort().reverse();
+                        const proModels = validModels.filter(m => m.includes('pro')).sort().reverse();
+                        modelsToTry = [...flashModels, ...proModels];
+                        
+                        console.log("Available models detected:", modelsToTry);
+                    }
+                } catch(e) {
+                    console.warn("Failed to auto-detect model list:", e);
+                }
+
+                // 一覧が取得できなかった場合の最終バックアップリスト (最新モデルを網羅)
+                if (modelsToTry.length === 0) {
+                    modelsToTry = [
+                        "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", 
+                        "gemini-1.5-flash-latest", "gemini-1.5-pro", "gemini-pro"
+                    ];
+                }
+            }
+        } else {
+            // Canvas環境の場合は専用モデルのみ使用
+            modelsToTry = ["gemini-2.5-flash-preview-09-2025"];
+        }
 
         let lastError = null;
 
@@ -400,13 +437,20 @@
                     
                     const data = await response.json();
                     const text = data.candidates[0].content.parts[0].text;
+
+                    // 通信に成功したモデルを記憶し、次回以降のAPI呼び出しを高速化
+                    if (storedKey && !cachedValidModel) {
+                        cachedValidModel = modelId;
+                        console.log(`Successfully connected using model: ${cachedValidModel}`);
+                    }
+
                     return options.schema ? JSON.parse(text) : text;
                 } catch (err) {
                     lastError = err;
                     
                     // 404 (モデルが見つからない) の場合は、このモデルのリトライをやめて「次のモデル」へ進む
                     if (err.message.includes("HTTP 404")) {
-                        console.warn(`Model ${modelId} returned 404. Trying next model...`);
+                        console.warn(`Model ${modelId} returned 404. Trying next model in list...`);
                         break; 
                     }
                     
