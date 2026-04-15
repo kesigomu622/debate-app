@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Arena Ver.3.19 (JSON+Search Fix)</title>
+    <title>AI Debate Arena Ver.3.20 (3.1-Flash-Lite)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes slideUpFade {
@@ -364,9 +364,9 @@
         const storedKey = getApiKey();
         const finalKey = storedKey || apiKey;
 
-        // Vercel(手動キー)の場合は gemini-2.5-flash に固定！
+        // Vercel(手動キー)の場合は gemini-3.1-flash-lite-preview に固定！
         // Canvas環境の場合は専用プレビューモデルを使用
-        const modelId = storedKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
+        const modelId = storedKey ? "gemini-3.1-flash-lite-preview" : "gemini-2.5-flash-preview-09-2025";
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${finalKey}`;
         
         const payload = {
