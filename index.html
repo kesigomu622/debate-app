@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Arena Ver.3.22 (2.5-Flash-Lite Auto-Recovery)</title>
+    <title>AI Debate Arena Ver.3.23 (Cost Format Fix)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes slideUpFade {
@@ -104,7 +104,7 @@
             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         </button>
         <div class="inline-flex items-center justify-center px-4 py-1.5 mb-3 text-sm font-bold text-indigo-600 bg-indigo-100 rounded-full border border-indigo-200 uppercase tracking-widest shadow-sm">
-            🛡️ Version 3.22 Tactical Edition
+            🛡️ Version 3.23 Tactical Edition
         </div>
         <h1 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-red-600 mb-4 tracking-tight">
             AI Debate Arena
@@ -577,8 +577,8 @@
         };
 
         try {
-            // リサーチAIへの指示を強化し、特定の技術（EVなど）に偏らないように調整
-            const extractPrompt = (item) => `「${item}」について一般的な最新スペックと代表的な特徴を日本語で抽出せよ。特定の技術（EVのみなど）や極端な最新モデルに偏らず、普遍的なメリットも含めてバランスよくまとめること。`;
+            // リサーチAIへの指示を強化し、特定の技術（EVなど）に偏らないように調整。価格は超短縮。
+            const extractPrompt = (item) => `「${item}」について一般的な最新スペックと代表的な特徴を日本語で抽出せよ。特定の技術（EVのみなど）や極端な最新モデルに偏らず、普遍的なメリットも含めてバランスよくまとめること。さらに【参考価格(cost)】は「約50万円〜」や「月額1,000円」のように、必ず15文字以内で極めて簡潔に出力せよ。`;
             const sysInstruction = "優秀なリサーチAI。必ず日本語で出力すること。";
 
             // 青の調査
