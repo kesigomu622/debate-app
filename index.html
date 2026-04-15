@@ -372,34 +372,13 @@
             if (cachedValidModel) {
                 modelsToTry = [cachedValidModel];
             } else {
-                try {
-                    // Gemini APIの仕様に従い、そのAPIキーで現在実際に使えるモデル一覧を自動取得する
-                    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${finalKey}`);
-                    if (listRes.ok) {
-                        const listData = await listRes.json();
-                        // generateContentをサポートしているモデルだけを抽出
-                        const validModels = listData.models
-                            .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
-                            .map(m => m.name.replace('models/', ''));
-                        
-                        // 高速なflash系を優先し、次にpro系を試すようにリストを構築
-                        const flashModels = validModels.filter(m => m.includes('flash')).sort().reverse();
-                        const proModels = validModels.filter(m => m.includes('pro')).sort().reverse();
-                        modelsToTry = [...flashModels, ...proModels];
-                        
-                        console.log("Available models detected:", modelsToTry);
-                    }
-                } catch(e) {
-                    console.warn("Failed to auto-detect model list:", e);
-                }
-
-                // 一覧が取得できなかった場合の最終バックアップリスト (最新モデルを網羅)
-                if (modelsToTry.length === 0) {
-                    modelsToTry = [
-                        "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", 
-                        "gemini-1.5-flash-latest", "gemini-1.5-pro", "gemini-pro"
-                    ];
-                }
+                // 自動探知の通信エラーを避けるため、安定して動くモデルを順番に指定
+                modelsToTry = [
+                    "gemini-1.5-flash",
+                    "gemini-2.0-flash", 
+                    "gemini-1.5-flash-latest", 
+                    "gemini-1.5-pro"
+                ];
             }
         } else {
             // Canvas環境の場合は専用モデルのみ使用
@@ -418,7 +397,8 @@
             if (options.schema) payload.generationConfig = { responseMimeType: "application/json", responseSchema: options.schema };
             if (options.useSearch) payload.tools = [{ "google_search": {} }];
 
-            const delays = [1000, 2000, 4000, 8000];
+            // リトライ回数を減らして待機時間を短縮
+            const delays = [1000, 2000, 4000];
             for (let i = 0; i <= delays.length; i++) {
                 try {
                     const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -448,27 +428,27 @@
                 } catch (err) {
                     lastError = err;
                     
-                    // 404 (モデルが見つからない) の場合は、このモデルのリトライをやめて「次のモデル」へ進む
-                    if (err.message.includes("HTTP 404")) {
-                        console.warn(`Model ${modelId} returned 404. Trying next model in list...`);
+                    // 400(検索機能非対応など) や 404(モデル無し) の場合は即座に「次のモデル」へ進む
+                    if (err.message.includes("HTTP 400") || err.message.includes("HTTP 404")) {
+                        console.warn(`Model ${modelId} returned ${err.message}. Trying next model...`);
                         break; 
                     }
                     
-                    // 429 (クォータ超過) の場合、他のモデルを試してもブロックされる可能性が高いため即座にエラーを投げる
-                    if (err.message.includes("HTTP 429") && err.message.toLowerCase().includes("quota")) {
+                    // 429(クォータ超過) や 403(キー無効) の場合はアカウント全体のエラーなので即中断
+                    if (err.message.includes("HTTP 429") || err.message.includes("HTTP 403")) {
                         throw err;
                     }
                     
-                    // 認証エラー(400/403)は即時モーダル表示のために完全にスローして中断
-                    if (i === delays.length || err.message.includes("HTTP 400") || err.message.includes("HTTP 403")) {
-                        throw err;
+                    // ネットワークエラー等でリトライ上限に達した場合は次のモデルへ
+                    if (i === delays.length) {
+                        break;
                     }
                     await new Promise(r => setTimeout(r, delays[i]));
                 }
             }
         }
         
-        // すべてのモデルリストを試しても失敗した場合はエラーを投げる
+        // すべてのモデルを試しても失敗した場合はエラーを投げる
         throw lastError;
     }
 
@@ -616,20 +596,20 @@
             console.error("Research Error:", e);
             const hasUserKey = !!getApiKey();
 
-            // プレビュー環境(APIキー空)の場合はモーダルを開かず、画面にエラーを表示するのみにする
-            if (hasUserKey && e.message.includes("HTTP 429")) {
-                document.getElementById('api-warning').innerText = `⚠️ APIの利用枠上限に達しました(429)。時間をおくか、別のAPIキーを設定してください。`;
-                document.getElementById('api-warning').classList.remove('hidden');
-                openApiModal(true);
-                return;
-            }
-            if (hasUserKey && (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404"))) {
-                document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません: ${e.message}`;
-                document.getElementById('api-warning').classList.remove('hidden');
-                openApiModal(true);
-                return;
+            // モーダル表示処理
+            if (hasUserKey) {
+                if (e.message.includes("HTTP 429")) {
+                    document.getElementById('api-warning').innerText = `⚠️ APIの利用枠上限に達しました(429)。時間をおくか、別のAPIキーを設定してください。`;
+                    document.getElementById('api-warning').classList.remove('hidden');
+                    openApiModal(true);
+                } else if (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404")) {
+                    document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません: ${e.message}`;
+                    document.getElementById('api-warning').classList.remove('hidden');
+                    openApiModal(true);
+                }
             }
             
+            // 画面に「反応がない」と思わせないため、ボタン下部にも必ずエラーテキストを表示
             const errorMsg = document.getElementById('error-msg');
             errorMsg.innerText = `エラー: ${e.message}`;
             errorMsg.classList.remove('hidden', 'opacity-0');
@@ -637,7 +617,7 @@
             setTimeout(() => {
                 errorMsg.classList.remove('opacity-100');
                 errorMsg.classList.add('opacity-0', 'hidden');
-            }, 5000);
+            }, 8000);
         } finally {
             isProcessing = false;
             btn.disabled = false;
