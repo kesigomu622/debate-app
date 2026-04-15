@@ -593,10 +593,13 @@
         };
 
         try {
-            const [resA, resB] = await Promise.all([
-                generateAIResponse(`「${itemA}」について最新スペックと特徴を抽出せよ。`, "優秀なリサーチAI。", { useSearch: true, schema }),
-                generateAIResponse(`「${itemB}」について最新スペックと特徴を抽出せよ。`, "優秀なリサーチAI。", { useSearch: true, schema })
-            ]);
+            // 通信制限エラーを避けるため、同時にリクエストせず「順番」に実行するように修正
+            const resA = await generateAIResponse(`「${itemA}」について最新スペックと特徴を抽出せよ。`, "優秀なリサーチAI。", { useSearch: true, schema });
+            
+            textSpan.innerText = "データ照合中...";
+            await new Promise(r => setTimeout(r, 1000)); // 連続アクセスを防ぐための待機時間
+            
+            const resB = await generateAIResponse(`「${itemB}」について最新スペックと特徴を抽出せよ。`, "優秀なリサーチAI。", { useSearch: true, schema });
 
             document.getElementById('label-info-a').innerText = resA.official_name;
             document.getElementById('label-info-b').innerText = resB.official_name;
@@ -610,13 +613,17 @@
             document.getElementById('verification-area').classList.remove('hidden');
             setTimeout(() => document.getElementById('verification-area').scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
         } catch(e) { 
-            if (e.message.includes("HTTP 429")) {
+            console.error("Research Error:", e);
+            const hasUserKey = !!getApiKey();
+
+            // プレビュー環境(APIキー空)の場合はモーダルを開かず、画面にエラーを表示するのみにする
+            if (hasUserKey && e.message.includes("HTTP 429")) {
                 document.getElementById('api-warning').innerText = `⚠️ APIの利用枠上限に達しました(429)。時間をおくか、別のAPIキーを設定してください。`;
                 document.getElementById('api-warning').classList.remove('hidden');
                 openApiModal(true);
                 return;
             }
-            if (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404")) {
+            if (hasUserKey && (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404"))) {
                 document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません: ${e.message}`;
                 document.getElementById('api-warning').classList.remove('hidden');
                 openApiModal(true);
@@ -745,21 +752,23 @@ ${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:$
             document.getElementById('report-area').scrollIntoView({ behavior: 'smooth' });
 
         } catch(e) { 
-            if (e.message.includes("HTTP 429")) {
+            console.error("Debate Loop Error:", e);
+            const hasUserKey = !!getApiKey();
+
+            if (hasUserKey && e.message.includes("HTTP 429")) {
                 document.getElementById('api-warning').innerText = `⚠️ APIの利用枠上限に達しました(429)。時間をおくか、別のAPIキーを設定してください。`;
                 document.getElementById('api-warning').classList.remove('hidden');
                 openApiModal(true);
                 appendMessage("System", `APIの利用枠上限に達したため中断しました。別のAPIキーをお試しください。`, null, true); 
                 return;
             }
-            if (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404")) {
+            if (hasUserKey && (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404"))) {
                 document.getElementById('api-warning').innerText = `⚠️ APIキーが無効かモデルが見つかりません: ${e.message}`;
                 document.getElementById('api-warning').classList.remove('hidden');
                 openApiModal(true);
                 appendMessage("System", `APIエラーにより中断しました: ${e.message}`, null, true); 
                 return;
             }
-            console.error("Debate Loop Error:", e);
             appendMessage("System", `通信エラーにより試合が中断されました: ${e.message}`, null, true); 
         } finally { 
             isProcessing = false; 
