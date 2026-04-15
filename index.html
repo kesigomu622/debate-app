@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Debate Arena Ver.3.24 (Strict Length & Model Fix)</title>
+    <title>AI Debate Arena Ver.3.25 (iPhone Key Fix)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes slideUpFade {
@@ -104,7 +104,7 @@
             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         </button>
         <div class="inline-flex items-center justify-center px-4 py-1.5 mb-3 text-sm font-bold text-indigo-600 bg-indigo-100 rounded-full border border-indigo-200 uppercase tracking-widest shadow-sm">
-            🛡️ Version 3.24 Tactical Edition
+            🛡️ Version 3.25 Tactical Edition
         </div>
         <h1 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-red-600 mb-4 tracking-tight">
             AI Debate Arena
@@ -317,8 +317,22 @@
 
     function closeApiModal() { document.getElementById('api-modal').classList.add('hidden'); }
 
+    // iPhone特有のコピペ問題（見えない文字や全角化）を強制的に修正するクレンジング関数
+    function cleanApiKey(key) {
+        if (!key) return "";
+        // 1. 全角英数字を半角に変換
+        let cleaned = key.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
+            return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+        });
+        // 2. 空白、改行、および見えない特殊文字(ゼロ幅スペース等)をすべて完全に除去
+        cleaned = cleaned.replace(/[\s\u200B-\u200D\uFEFF]/g, '');
+        return cleaned;
+    }
+
     function saveApiKey() {
-        const val = document.getElementById('api-key-input').value.trim();
+        let val = document.getElementById('api-key-input').value;
+        val = cleanApiKey(val); // 強力なクレンジングを実行
+        
         if(val) localStorage.setItem('gemini_api_key_v3_cards', val);
         else localStorage.removeItem('gemini_api_key_v3_cards');
         closeApiModal();
@@ -617,7 +631,7 @@
                 if (hasUserKey && (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404"))) {
                     let warnText = `⚠️ APIキーが無効かモデルが見つかりません。`;
                     if (e.message.includes("HTTP 403") || e.message.includes("HTTP 400")) {
-                        warnText = `⚠️ APIキーが間違っています。コピペ時の空白などを確認してください。`;
+                        warnText = `⚠️ APIキーが間違っています。iPhone等でコピペした際の見えない文字が原因の可能性があります。再度設定し直してください。`;
                     } else if (e.message.includes("HTTP 404")) {
                         warnText = `⚠️ このAPIキーでは指定モデルが利用できません。`;
                     }
@@ -760,7 +774,7 @@ ${cond}\n価格:${mC}\n武器:${mW.join(',')}\n詳細:${mD}\n敵:${opp}(価格:$
 
             if (hasUserKey && (e.message === "API_KEY_MISSING" || e.message.includes("HTTP 400") || e.message.includes("HTTP 403") || e.message.includes("HTTP 404"))) {
                 let warnText = `⚠️ APIキーが無効かモデルが見つかりません。`;
-                if (e.message.includes("HTTP 403") || e.message.includes("HTTP 400")) warnText = `⚠️ APIキーが間違っています。コピペ時の空白などを確認してください。`;
+                if (e.message.includes("HTTP 403") || e.message.includes("HTTP 400")) warnText = `⚠️ APIキーが間違っています。iPhone等でコピペした際の見えない文字が原因の可能性があります。再度設定し直してください。`;
                 else if (e.message.includes("HTTP 404")) warnText = `⚠️ このAPIキーでは指定モデルが利用できません。`;
                 
                 document.getElementById('api-warning').innerText = warnText;
