@@ -573,14 +573,18 @@
         };
 
         try {
+            // リサーチAIへの指示を強化し、特定の技術（EVなど）に偏らないように調整
+            const extractPrompt = (item) => `「${item}」について一般的な最新スペックと代表的な特徴を日本語で抽出せよ。特定の技術（EVのみなど）や極端な最新モデルに偏らず、普遍的なメリットも含めてバランスよくまとめること。`;
+            const sysInstruction = "優秀なリサーチAI。必ず日本語で出力すること。";
+
             // 超安全モード: 通信制限エラーを避けるため、同時にリクエストせず「順番」に実行する
-            const resA = await generateAIResponse(`「${itemA}」について最新スペックと特徴を日本語で抽出せよ。`, "優秀なリサーチAI。必ず日本語で出力すること。", { useSearch: true, schema });
+            const resA = await generateAIResponse(extractPrompt(itemA), sysInstruction, { useSearch: true, schema });
             
             textSpan.innerText = "データ照合中...";
             // 超安全モード: 連続アクセスを防ぐため 3秒 (3000ms) 待機する
             await new Promise(r => setTimeout(r, 3000));
             
-            const resB = await generateAIResponse(`「${itemB}」について最新スペックと特徴を日本語で抽出せよ。`, "優秀なリサーチAI。必ず日本語で出力すること。", { useSearch: true, schema });
+            const resB = await generateAIResponse(extractPrompt(itemB), sysInstruction, { useSearch: true, schema });
 
             document.getElementById('label-info-a').innerText = resA.official_name;
             document.getElementById('label-info-b').innerText = resB.official_name;
